@@ -1,0 +1,53 @@
+{
+  "name": "@loke/queue-kit",
+  "version": "1.0.0",
+  "description": "",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "test": "eslint . && ava -v",
+    "lint": "eslint . ",
+    "prepare": "npm run build",
+    "build": "rm -rf ./dist && tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LOKE/loke-queue.git"
+  },
+  "author": "MIT",
+  "license": "UNLICENCED",
+  "bugs": {
+    "url": "https://github.com/LOKE/loke-queue/issues"
+  },
+  "homepage": "https://github.com/LOKE/loke-queue#readme",
+  "dependencies": {
+    "@types/amqplib": "^0.8.2",
+    "ulid": "^2.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^14.18.13",
+    "@typescript-eslint/eslint-plugin": "^5.19.0",
+    "@typescript-eslint/parser": "^5.19.0",
+    "amqplib": "^0.8.0",
+    "ava": "^4.2.0",
+    "aws-sdk": "^2.1118.0",
+    "eslint": "^8.13.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-prettier": "^4.0.0",
+    "prettier": "^2.6.2",
+    "prom-client": "^14.0.1",
+    "ts-node": "^10.7.0",
+    "typescript": "^4.6.3"
+  },
+  "ava": {
+    "extensions": [
+      "ts"
+    ],
+    "require": [
+      "ts-node/register"
+    ]
+  }
+}
