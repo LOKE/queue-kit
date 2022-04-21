@@ -1,7 +1,7 @@
 on: push
 
 jobs:
-  test-prom-client-versions:
+  test:
     runs-on: ubuntu-latest
 
     services:
@@ -30,6 +30,7 @@ jobs:
 
   
   publish:
+    needs: test
     runs-on: ubuntu-latest
 
     steps:
