@@ -1,7 +1,7 @@
 {
   "name": "@loke/queue-kit",
   "version": "1.0.0",
-  "description": "",
+  "description": "A lib for rabbit and sqs queues",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "private": false,
@@ -18,8 +18,8 @@
     "type": "git",
     "url": "git+https://github.com/LOKE/loke-queue.git"
   },
-  "author": "MIT",
-  "license": "UNLICENCED",
+  "author": "Dominic Smith",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/LOKE/loke-queue/issues"
   },
@@ -51,5 +51,9 @@
     "require": [
       "ts-node/register"
     ]
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }
