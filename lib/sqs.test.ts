@@ -1,7 +1,9 @@
 import test from "ava";
-import { SQSData, SQSHelper } from "./sqs";
 import SQS from "aws-sdk/clients/sqs";
+import { AbortController } from "node-abort-controller";
 import { ulid } from "ulid";
+
+import { SQSData, SQSHelper } from "./sqs";
 
 const noopLogger = {
   error: () => undefined,
@@ -93,7 +95,7 @@ test.serial("handleQueue - with failing", async (t) => {
     },
     maxConcurrent: 5,
     // Node types seem messed up
-    signal: ac.signal as AbortSignal,
+    signal: ac.signal,
   });
 
   await Promise.all(
@@ -135,7 +137,7 @@ test.serial("handleQueue - max concurrency", async (t) => {
     },
     maxConcurrent: 20,
     // Node types seem messed up
-    signal: ac.signal as AbortSignal,
+    signal: ac.signal,
   });
 
   await Promise.all(

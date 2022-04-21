@@ -1,16 +1,16 @@
 import test, { ExecutionContext } from "ava";
 import { connect } from "amqplib";
 import { ulid } from "ulid";
+import { AbortController } from "node-abort-controller";
 
 import { RabbitHelper } from "./rabbit";
-import { AbortSignal } from "./common";
 
 const noopLogger = {
   error: () => undefined,
 };
 
 async function setup(t: ExecutionContext<unknown>) {
-  const conn = await connect("amqp://localhost");
+  const conn = await connect(process.env.RABBIT_URL || "amqp://localhost");
   t.teardown(async () => {
     await conn.close();
   });
@@ -69,7 +69,7 @@ test("handleQueue", async (t) => {
     },
     maxConcurrent: 5,
     // Node types seem messed up
-    signal: ac.signal as AbortSignal,
+    signal: ac.signal,
   });
 
   await Promise.all(
@@ -113,7 +113,7 @@ test("handleQueue - max concurrency", async (t) => {
     },
     maxConcurrent: 20,
     // Node types seem messed up
-    signal: ac.signal as AbortSignal,
+    signal: ac.signal,
   });
 
   await Promise.all(
@@ -154,7 +154,7 @@ test("onceListener - aborted", async (t) => {
 
   const l1 = await rabbit.onceListener({
     topicPattern: "xxx",
-    signal: alreadyAborted.signal as AbortSignal,
+    signal: alreadyAborted.signal,
   });
   await t.throwsAsync(l1.data(), { message: "Aborted" });
 
@@ -163,7 +163,7 @@ test("onceListener - aborted", async (t) => {
 
   const l2 = await rabbit.onceListener({
     topicPattern: "xxx",
-    signal: abortedAfterBind.signal as AbortSignal,
+    signal: abortedAfterBind.signal,
   });
   abortedAfterBind.abort();
 

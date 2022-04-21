@@ -14,7 +14,7 @@ export type MessageHandler<T> = (message: T) => Promise<void>;
 export interface AbortSignal {
   aborted: boolean;
   addEventListener: (
-    event: string,
+    event: "abort",
     handler: () => void,
     opts: { once: boolean }
   ) => void;

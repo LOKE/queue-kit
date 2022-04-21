@@ -3,30 +3,41 @@ on: push
 jobs:
   test-prom-client-versions:
     runs-on: ubuntu-latest
+
+    services:
+      rabbitmq:
+        image: rabbitmq:3.8
+        env:
+          RABBITMQ_DEFAULT_USER: guest
+          RABBITMQ_DEFAULT_PASS: guest
+        ports:
+          - 5672
+
+    strategy:
+      matrix:
+        node-version: [14.x, 16.x, 18.x]
+
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions/setup-node@v1
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
         with:
-          node-version: 14
+          node-version: ${{ matrix.node-version }}
       - run: npm install
-
-      - run: npm install prom-client@12
       - run: npm run build
       - run: npm test
+        env:
+          RABBIT_URL: amqp://127.0.0.1:${{ job.services.rabbitmq.ports['5672'] }}
 
-      - run: npm install prom-client@13
-      - run: npm run build
-      - run: npm test
   
   publish:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions/setup-node@v1
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
         with:
-          node-version: 14
+          node-version: 14.x
       - run: npm install
-      - run: npm test
       - uses: JS-DevTools/npm-publish@v1
         with:
           token: ${{ secrets.NPM_TOKEN }}
