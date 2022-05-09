@@ -192,15 +192,21 @@ export class RabbitHelper {
   /**
    * assets the topic exchange exists
    */
-  async assertExchange(): Promise<void> {
+  async assertExchange(opts?: { durable?: boolean }): Promise<void> {
     return this.usingChannel(async (ch) => {
-      await ch.assertExchange(this.exchangeName, "topic", { durable: true });
+      await ch.assertExchange(this.exchangeName, "topic", opts);
     });
   }
 
   async assertWorkQueue(queueName: string): Promise<Replies.AssertQueue> {
     return this.usingChannel(async (ch) => {
       return await ch.assertQueue(queueName, { durable: true });
+    });
+  }
+
+  async createSubscriptionQueue(): Promise<Replies.AssertQueue> {
+    return this.usingChannel(async (ch) => {
+      return await ch.assertQueue("", { exclusive: true, autoDelete: true });
     });
   }
 
