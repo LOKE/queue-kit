@@ -8,6 +8,7 @@ const noop = () => undefined;
 
 export interface RabbitData<T> {
   messageId: string;
+  routingKey: string;
   timestamp: Date;
   body: T;
 }
@@ -80,6 +81,7 @@ export class RabbitHelper {
           } else {
             resolve({
               messageId: msg.properties.messageId,
+              routingKey: msg.fields.routingKey,
               timestamp: new Date(msg.properties.timestamp * 1000),
               body: JSON.parse(msg.content.toString("utf8")),
             });
@@ -129,6 +131,7 @@ export class RabbitHelper {
         const task = args
           .handler({
             messageId: msg.properties.messageId,
+            routingKey: msg.fields.routingKey,
             timestamp: new Date(msg.properties.timestamp * 1000),
             body: JSON.parse(msg.content.toString("utf8")),
           })
