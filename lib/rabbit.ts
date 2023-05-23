@@ -1,4 +1,4 @@
-import { Channel, Connection, Replies } from "amqplib";
+import { Channel, Connection, Options, Replies } from "amqplib";
 import assert from "assert";
 import { ulid } from "ulid";
 
@@ -139,7 +139,9 @@ export class RabbitHelper {
             () => ch.ack(msg),
             (err: unknown) => {
               this.logger.error(`Error handling message: ${errorMessage(err)}`);
-              ch.nack(msg);
+              // TODO: when do we want to requeue? Nacking with requeue=false
+              // sends to dead letter queue
+              ch.nack(msg, false, false);
             }
           );
 
@@ -201,9 +203,30 @@ export class RabbitHelper {
     });
   }
 
-  async assertWorkQueue(queueName: string): Promise<Replies.AssertQueue> {
+  async assertWorkQueue(
+    queueName: string,
+    options: { retryDelay?: number } = {}
+  ): Promise<Replies.AssertQueue> {
     return this.usingChannel(async (ch) => {
-      return await ch.assertQueue(queueName, { durable: true });
+      const queueOptions: Options.AssertQueue = { durable: true };
+
+      if (options.retryDelay) {
+        const deadLetterQueue = `${queueName}-retry`;
+
+        // Use the default exchange (empty string) and to send messages directly
+        // to the queue
+        queueOptions.deadLetterExchange = "";
+        queueOptions.deadLetterRoutingKey = deadLetterQueue;
+
+        await ch.assertQueue(deadLetterQueue, {
+          durable: true,
+          deadLetterExchange: "",
+          deadLetterRoutingKey: queueName,
+          messageTtl: options.retryDelay,
+        });
+      }
+
+      return await ch.assertQueue(queueName, queueOptions);
     });
   }
 
