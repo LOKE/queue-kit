@@ -213,8 +213,8 @@ export class RabbitHelper {
       if (options.retryDelay) {
         const deadLetterQueue = `${queueName}-retry`;
 
-        // Use the default exchange (empty string) and to send messages directly
-        // to the queue
+        // Use the default exchange (empty string) to send messages directly to
+        // the queue
         queueOptions.deadLetterExchange = "";
         queueOptions.deadLetterRoutingKey = deadLetterQueue;
 
