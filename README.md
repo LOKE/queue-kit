@@ -19,7 +19,7 @@ async function main() {
   });
 
   await rabbitHelper.assertExchange();
-  await rabbitHelper.assertWorkQueue("work-queue");
+  await rabbitHelper.assertWorkQueue("work-queue", { retryDelay: 1000 });
   await rabbitHelper.bindQueue("work-queue", "thing.*");
 
   const aborter = new AbortController();
@@ -40,6 +40,33 @@ async function main() {
 }
 
 main();
+```
+
+**Breaking change in 2.x:** `assertWorkQueue` now requires a `retryDelay` option. This is the delay between retries when a message fails to be processed. To achieve this a dead letter queue is created and attached to the work queue (via the default direct exchange). Because old queues can't be changed via assertQueue, a new will need to be created.
+
+```ts
+await rabbitHelper.assertWorkQueue("new-queue", { retryDelay: 1000 });
+await rabbitHelper.bindQueue("new-queue", "thing.*");
+// bindings will already exist for the old-queue
+
+const aborter = new AbortController();
+
+const handler = async (msg) => {
+  await doWork(msg.body);
+};
+
+const doneP = await Promise.all([
+  rabbitHelper.handleQueue({
+    queueName: "old-queue",
+    handler,
+    signal: aborter.signal,
+  }),
+  rabbitHelper.handleQueue({
+    queueName: "new-queue",
+    handler,
+    signal: aborter.signal,
+  }),
+]);
 ```
 
 Publishing events

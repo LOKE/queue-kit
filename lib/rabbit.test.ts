@@ -10,7 +10,7 @@ const noopLogger = {
 };
 
 async function setup(t: ExecutionContext<unknown>) {
-  const conn = await connect(process.env.RABBIT_URL || "amqp://localhost");
+  const conn = await connect(process.env.RABBIT_URL || "amqp://127.0.0.1");
   t.teardown(async () => {
     await conn.close();
   });
@@ -33,13 +33,17 @@ async function setup(t: ExecutionContext<unknown>) {
 
 async function setupWorkQueue(
   t: ExecutionContext<unknown>,
-  rabbit: RabbitHelper
+  rabbit: RabbitHelper,
+  options: { retryDelay: number } = { retryDelay: 10000 }
 ) {
   const queueName = `loke-queue.test-${ulid()}`;
 
-  await rabbit.assertWorkQueue(queueName);
+  await rabbit.assertWorkQueue(queueName, options);
   t.teardown(async () =>
-    rabbit.usingChannel(async (ch) => ch.deleteQueue(queueName))
+    rabbit.usingChannel(async (ch) => {
+      await ch.deleteQueue(queueName);
+      await ch.deleteQueue(`${queueName}-retry`);
+    })
   );
 
   return queueName;
@@ -47,7 +51,7 @@ async function setupWorkQueue(
 
 test("handleQueue", async (t) => {
   const rabbit = await setup(t);
-  const queueName = await setupWorkQueue(t, rabbit);
+  const queueName = await setupWorkQueue(t, rabbit, { retryDelay: 1 });
 
   await rabbit.bindQueue(queueName, "thing.*");
 
@@ -168,4 +172,86 @@ test("onceListener - aborted", async (t) => {
   abortedAfterBind.abort();
 
   await t.throwsAsync(l2.data(), { message: "Aborted" });
+});
+
+test("handleQueue - retries (topic binding)", async (t) => {
+  const rabbit = await setup(t);
+
+  const retryDelay = 300;
+  const queueName = await setupWorkQueue(t, rabbit, { retryDelay });
+
+  await rabbit.bindQueue(queueName, "thing.*");
+
+  const ac = new AbortController();
+  const times = new Map<string, number>();
+  let total = 0;
+
+  const doneP = rabbit.handleQueue({
+    queueName,
+    signal: ac.signal,
+    handler: async (msg) => {
+      const firstTimestamp = times.get(msg.messageId);
+      try {
+        if (!firstTimestamp) {
+          times.set(msg.messageId, Date.now());
+          throw new Error("oops");
+        }
+
+        t.true(Date.now() - firstTimestamp > retryDelay);
+      } finally {
+        total++;
+        if (total >= 4) {
+          ac.abort();
+        }
+      }
+    },
+  });
+
+  await Promise.all(
+    new Array(2).fill(null).map((_, i) =>
+      rabbit.publish("thing." + i, {
+        id: i,
+      })
+    )
+  );
+
+  await doneP;
+});
+
+test("handleQueue - retries (direct queuing)", async (t) => {
+  const rabbit = await setup(t);
+
+  const retryDelay = 300;
+  const queueName = await setupWorkQueue(t, rabbit, { retryDelay });
+
+  const ac = new AbortController();
+  const times = new Map<string, number>();
+  let total = 0;
+
+  const doneP = rabbit.handleQueue({
+    queueName,
+    signal: ac.signal,
+    handler: async (msg) => {
+      const firstTimestamp = times.get(msg.messageId);
+      try {
+        if (!firstTimestamp) {
+          times.set(msg.messageId, Date.now());
+          throw new Error("oops");
+        }
+
+        t.true(Date.now() - firstTimestamp > retryDelay);
+      } finally {
+        total++;
+        if (total >= 4) {
+          ac.abort();
+        }
+      }
+    },
+  });
+
+  await Promise.all(
+    new Array(2).fill(null).map((_, i) => rabbit.sendToQueue(queueName, { i }))
+  );
+
+  await doneP;
 });
