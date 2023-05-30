@@ -34,7 +34,7 @@ async function setup(t: ExecutionContext<unknown>) {
 async function setupWorkQueue(
   t: ExecutionContext<unknown>,
   rabbit: RabbitHelper,
-  options: { retryDelay?: number } = {}
+  options: { retryDelay: number } = { retryDelay: 10000 }
 ) {
   const queueName = `loke-queue.test-${ulid()}`;
 

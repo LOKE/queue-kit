@@ -203,28 +203,36 @@ export class RabbitHelper {
     });
   }
 
+  /**
+   * Asserts a work queue with a dead letter queue
+   * @param queueName The name of the queue to assert
+   * @param options.retryDelay The delay in milliseconds to wait before retrying
+   * a nacked message
+   */
   async assertWorkQueue(
     queueName: string,
-    options: { retryDelay?: number } = {}
+    options: { retryDelay: number }
   ): Promise<Replies.AssertQueue> {
     return this.usingChannel(async (ch) => {
+      if (options.retryDelay <= 0) {
+        throw new Error("retryDelay must be greater than 0");
+      }
+
       const queueOptions: Options.AssertQueue = { durable: true };
 
-      if (options.retryDelay) {
-        const deadLetterQueue = `${queueName}-retry`;
+      const deadLetterQueue = `${queueName}-retry`;
 
-        // Use the default exchange (empty string) to send messages directly to
-        // the queue
-        queueOptions.deadLetterExchange = "";
-        queueOptions.deadLetterRoutingKey = deadLetterQueue;
+      // Use the default exchange (empty string) to send messages directly to
+      // the queue
+      queueOptions.deadLetterExchange = "";
+      queueOptions.deadLetterRoutingKey = deadLetterQueue;
 
-        await ch.assertQueue(deadLetterQueue, {
-          durable: true,
-          deadLetterExchange: "",
-          deadLetterRoutingKey: queueName,
-          messageTtl: options.retryDelay,
-        });
-      }
+      await ch.assertQueue(deadLetterQueue, {
+        durable: true,
+        deadLetterExchange: "",
+        deadLetterRoutingKey: queueName,
+        messageTtl: options.retryDelay,
+      });
 
       return await ch.assertQueue(queueName, queueOptions);
     });
