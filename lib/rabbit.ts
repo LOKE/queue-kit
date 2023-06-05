@@ -1,4 +1,4 @@
-import { Channel, Connection, Options, Replies } from "amqplib";
+import { Channel, Connection, Replies } from "amqplib";
 import assert from "assert";
 import { ulid } from "ulid";
 
@@ -127,11 +127,20 @@ export class RabbitHelper {
 
       const { consumerTag } = await ch.consume(args.queueName, async (msg) => {
         if (!msg) return;
+        const death = msg.properties.headers["x-death"]?.find(
+          (d) => d.queue === args.queueName
+        );
+
+        // As far as I can tell, the TO routing key is always the first one, and
+        // the CC are the ones that follow
+        const routingKey = death
+          ? death["routing-keys"][0]
+          : msg.fields.routingKey;
 
         const task = args
           .handler({
             messageId: msg.properties.messageId,
-            routingKey: msg.fields.routingKey,
+            routingKey,
             timestamp: new Date(msg.properties.timestamp * 1000),
             body: JSON.parse(msg.content.toString("utf8")),
           })
@@ -217,15 +226,7 @@ export class RabbitHelper {
       if (options.retryDelay <= 0) {
         throw new Error("retryDelay must be greater than 0");
       }
-
-      const queueOptions: Options.AssertQueue = { durable: true };
-
       const deadLetterQueue = `${queueName}-retry`;
-
-      // Use the default exchange (empty string) to send messages directly to
-      // the queue
-      queueOptions.deadLetterExchange = "";
-      queueOptions.deadLetterRoutingKey = deadLetterQueue;
 
       await ch.assertQueue(deadLetterQueue, {
         durable: true,
@@ -234,7 +235,13 @@ export class RabbitHelper {
         messageTtl: options.retryDelay,
       });
 
-      return await ch.assertQueue(queueName, queueOptions);
+      // Use the default exchange (empty string) to send messages directly to
+      // the queue
+      return await ch.assertQueue(queueName, {
+        durable: true,
+        deadLetterExchange: "",
+        deadLetterRoutingKey: deadLetterQueue,
+      });
     });
   }
 
