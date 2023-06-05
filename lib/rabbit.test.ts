@@ -178,37 +178,45 @@ test("handleQueue - retries (topic binding)", async (t) => {
   const rabbit = await setup(t);
 
   const retryDelay = 300;
+  const retryCount = 3;
+  const concurrent = 3;
   const queueName = await setupWorkQueue(t, rabbit, { retryDelay });
 
   await rabbit.bindQueue(queueName, "thing.*");
 
   const ac = new AbortController();
-  const times = new Map<string, number>();
-  let total = 0;
+  const allTries = new Map<string, { msg: unknown; timestamp: number }[]>();
+  let done = 0;
 
   const doneP = rabbit.handleQueue({
     queueName,
     signal: ac.signal,
     handler: async (msg) => {
-      const firstTimestamp = times.get(msg.messageId);
-      try {
-        if (!firstTimestamp) {
-          times.set(msg.messageId, Date.now());
-          throw new Error("oops");
-        }
+      let tries = allTries.get(msg.messageId);
+      if (!tries) {
+        tries = [];
+        allTries.set(msg.messageId, tries);
+      }
 
-        t.true(Date.now() - firstTimestamp > retryDelay);
-      } finally {
-        total++;
-        if (total >= 4) {
-          ac.abort();
-        }
+      tries.push({ msg, timestamp: Date.now() });
+      if (tries.length <= retryCount) {
+        throw new Error("oops");
+      }
+
+      for (let i = 1; i < tries.length; i++) {
+        t.deepEqual(tries[i].msg, tries[i - 1].msg);
+        t.true(tries[i].timestamp - tries[i - 1].timestamp > retryDelay);
+      }
+
+      done++;
+      if (done >= concurrent) {
+        ac.abort();
       }
     },
   });
 
   await Promise.all(
-    new Array(2).fill(null).map((_, i) =>
+    new Array(concurrent).fill(null).map((_, i) =>
       rabbit.publish("thing." + i, {
         id: i,
       })
@@ -222,35 +230,45 @@ test("handleQueue - retries (direct queuing)", async (t) => {
   const rabbit = await setup(t);
 
   const retryDelay = 300;
+  const retryCount = 3;
+  const concurrent = 3;
   const queueName = await setupWorkQueue(t, rabbit, { retryDelay });
 
   const ac = new AbortController();
-  const times = new Map<string, number>();
-  let total = 0;
+  const allTries = new Map<string, { msg: unknown; timestamp: number }[]>();
+  let done = 0;
 
   const doneP = rabbit.handleQueue({
     queueName,
     signal: ac.signal,
     handler: async (msg) => {
-      const firstTimestamp = times.get(msg.messageId);
-      try {
-        if (!firstTimestamp) {
-          times.set(msg.messageId, Date.now());
-          throw new Error("oops");
-        }
+      let tries = allTries.get(msg.messageId);
+      if (!tries) {
+        tries = [];
+        allTries.set(msg.messageId, tries);
+      }
 
-        t.true(Date.now() - firstTimestamp > retryDelay);
-      } finally {
-        total++;
-        if (total >= 4) {
-          ac.abort();
-        }
+      tries.push({ msg, timestamp: Date.now() });
+      if (tries.length <= retryCount) {
+        throw new Error("oops");
+      }
+
+      for (let i = 1; i < tries.length; i++) {
+        t.deepEqual(tries[i].msg, tries[i - 1].msg);
+        t.true(tries[i].timestamp - tries[i - 1].timestamp > retryDelay);
+      }
+
+      done++;
+      if (done >= concurrent) {
+        ac.abort();
       }
     },
   });
 
   await Promise.all(
-    new Array(2).fill(null).map((_, i) => rabbit.sendToQueue(queueName, { i }))
+    new Array(concurrent)
+      .fill(null)
+      .map((_, i) => rabbit.sendToQueue(queueName, { i }))
   );
 
   await doneP;
