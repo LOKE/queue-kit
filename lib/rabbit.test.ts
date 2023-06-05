@@ -185,17 +185,17 @@ test("handleQueue - retries (topic binding)", async (t) => {
   await rabbit.bindQueue(queueName, "thing.*");
 
   const ac = new AbortController();
-  const allTires = new Map<string, { msg: unknown; timestamp: number }[]>();
+  const allTries = new Map<string, { msg: unknown; timestamp: number }[]>();
   let done = 0;
 
   const doneP = rabbit.handleQueue({
     queueName,
     signal: ac.signal,
     handler: async (msg) => {
-      let tries = allTires.get(msg.messageId);
+      let tries = allTries.get(msg.messageId);
       if (!tries) {
         tries = [];
-        allTires.set(msg.messageId, tries);
+        allTries.set(msg.messageId, tries);
       }
 
       tries.push({ msg, timestamp: Date.now() });
@@ -235,17 +235,17 @@ test("handleQueue - retries (direct queuing)", async (t) => {
   const queueName = await setupWorkQueue(t, rabbit, { retryDelay });
 
   const ac = new AbortController();
-  const allTires = new Map<string, { msg: unknown; timestamp: number }[]>();
+  const allTries = new Map<string, { msg: unknown; timestamp: number }[]>();
   let done = 0;
 
   const doneP = rabbit.handleQueue({
     queueName,
     signal: ac.signal,
     handler: async (msg) => {
-      let tries = allTires.get(msg.messageId);
+      let tries = allTries.get(msg.messageId);
       if (!tries) {
         tries = [];
-        allTires.set(msg.messageId, tries);
+        allTries.set(msg.messageId, tries);
       }
 
       tries.push({ msg, timestamp: Date.now() });
