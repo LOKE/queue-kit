@@ -1,8 +1,9 @@
 import { Channel, Connection, Replies } from "amqplib";
 import assert from "assert";
+import util from "util";
 import { ulid } from "ulid";
 
-import { AbortSignal, errorMessage, Logger, MessageHandler } from "./common";
+import { AbortSignal, Logger, MessageHandler } from "./common";
 
 const noop = () => undefined;
 
@@ -147,7 +148,15 @@ export class RabbitHelper {
           .then(
             () => ch.ack(msg),
             (err: unknown) => {
-              this.logger.error(`Error handling message: ${errorMessage(err)}`);
+              this.logger.error(
+                util.format(
+                  "Error handling message message_id=%j routing_key=%s deaths=%s: %s",
+                  msg.properties.messageId,
+                  routingKey,
+                  death?.count ?? 0,
+                  err
+                )
+              );
               // TODO: when do we want to requeue? Nacking with requeue=false
               // sends to dead letter queue
               ch.nack(msg, false, false);

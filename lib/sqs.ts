@@ -1,4 +1,5 @@
-import { errorMessage, Logger, MessageHandler } from "./common";
+import util from "util";
+import { Logger, MessageHandler } from "./common";
 
 interface RawMessage {
   MessageId?: string;
@@ -72,10 +73,17 @@ export class SQSHelper {
             await m.ack();
             // ackedCount.inc(labels);
           } catch (err: unknown) {
-            this.logger.error(`Error handling message: ${errorMessage(err)}`);
+            this.logger.error(
+              util.format(
+                "Error handling message message_id=%j : %s",
+                m.data.id,
+                err
+              )
+            );
+
             m.nack().catch((err) =>
               this.logger.error(
-                `Error sending message nack: ${errorMessage(err)}`
+                util.format("Error sending message nack: %s", err)
               )
             );
             // nackedCount.inc(labels);
