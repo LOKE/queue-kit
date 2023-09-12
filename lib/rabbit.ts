@@ -128,7 +128,7 @@ export class RabbitHelper {
 
       const { consumerTag } = await ch.consume(args.queueName, async (msg) => {
         if (!msg) return;
-        const death = msg.properties.headers["x-death"]?.find(
+        const death = msg.properties.headers?.["x-death"]?.find(
           (d) => d.queue === args.queueName
         );
 
