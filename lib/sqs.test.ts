@@ -1,6 +1,5 @@
 import test from "ava";
 import { SQSClient } from "@aws-sdk/client-sqs";
-import { AbortController } from "node-abort-controller";
 import { ulid } from "ulid";
 
 import { SQS, SQSData, SQSHelper } from "./sqs";
@@ -11,10 +10,12 @@ const noopLogger = {
 
 function setup() {
   if (process.env.SQS_QUEUE_URL) {
+    const queueUrl = new URL(process.env.SQS_QUEUE_URL);
+    const region = queueUrl.hostname.split(".")[1];
     return {
       queueUrl: process.env.SQS_QUEUE_URL,
       sqs: new SQSHelper({
-        sqs: new SQSClient(),
+        sqs: new SQSClient({ region: region }),
         logger: noopLogger,
       }),
     };

@@ -1,7 +1,6 @@
 import test, { ExecutionContext } from "ava";
 import { connect } from "amqplib";
 import { ulid } from "ulid";
-import { AbortController } from "node-abort-controller";
 
 import { RabbitHelper } from "./rabbit";
 

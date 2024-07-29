@@ -29,16 +29,15 @@
     "ulid": "^2.3.0"
   },
   "devDependencies": {
-    "@types/node": "^14.18.13",
+    "@aws-sdk/client-sqs": "^3.620.0",
+    "@types/node": "^18.19.42",
     "@typescript-eslint/eslint-plugin": "^5.19.0",
     "@typescript-eslint/parser": "^5.19.0",
     "amqplib": "^0.8.0",
     "ava": "^4.2.0",
-    "@aws-sdk/client-sqs": "^3.620.0",
     "eslint": "^8.13.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-prettier": "^4.0.0",
-    "node-abort-controller": "^3.0.1",
     "prettier": "^2.6.2",
     "prom-client": "^14.0.1",
     "ts-node": "^10.7.0",
@@ -55,5 +54,8 @@
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
+  },
+  "engines": {
+    "node": ">=16.0.0"
   }
 }
