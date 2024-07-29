@@ -1,5 +1,12 @@
 import util from "util";
 import { Logger, MessageHandler } from "./common";
+import {
+  ChangeMessageVisibilityCommand,
+  DeleteMessageCommand,
+  ReceiveMessageCommand,
+  SendMessageCommand,
+  SQSClient,
+} from "@aws-sdk/client-sqs";
 
 interface RawMessage {
   MessageId?: string;
@@ -7,26 +14,7 @@ interface RawMessage {
   ReceiptHandle?: string;
 }
 
-export interface SQS {
-  changeMessageVisibility: (args: {
-    ReceiptHandle: string;
-    QueueUrl: string;
-    VisibilityTimeout: number;
-  }) => {
-    promise: () => Promise<unknown>;
-  };
-  deleteMessage: (args: { ReceiptHandle: string; QueueUrl: string }) => {
-    promise: () => Promise<unknown>;
-  };
-  receiveMessage: (args: {
-    MaxNumberOfMessages: number;
-    QueueUrl: string;
-    WaitTimeSeconds: number;
-  }) => { promise: () => Promise<{ Messages?: RawMessage[] }> };
-  sendMessage: (args: { QueueUrl: string; MessageBody: string }) => {
-    promise: () => Promise<unknown>;
-  };
-}
+export type SQS = Pick<SQSClient, "send">;
 
 export type SQSData<T> = { id?: string; body: T };
 
@@ -103,25 +91,25 @@ export class SQSHelper {
   }
 
   async sendToQueue(queueUrl: string, payload: unknown): Promise<void> {
-    await this.sqs
-      .sendMessage({
-        QueueUrl: queueUrl,
-        MessageBody: JSON.stringify(payload),
-      })
-      .promise();
+    const message = new SendMessageCommand({
+      QueueUrl: queueUrl,
+      MessageBody: JSON.stringify(payload),
+    });
+
+    await this.sqs.send(message);
   }
 
   private async receiveMessages<T>(
     queueUrl: string,
     max: number
   ): Promise<SQSMessage<T>[]> {
-    const rawSqsMessages = await this.sqs
-      .receiveMessage({
-        MaxNumberOfMessages: Math.min(10, max),
-        QueueUrl: queueUrl,
-        WaitTimeSeconds: 20,
-      })
-      .promise();
+    const message = new ReceiveMessageCommand({
+      QueueUrl: queueUrl,
+      MaxNumberOfMessages: Math.min(10, max),
+      WaitTimeSeconds: 20,
+    });
+
+    const rawSqsMessages = await this.sqs.send(message);
 
     if (!rawSqsMessages.Messages) {
       return [];
@@ -135,22 +123,20 @@ export class SQSHelper {
         },
         ack: async () => {
           if (!m.ReceiptHandle) return;
-          await this.sqs
-            .deleteMessage({
-              ReceiptHandle: m.ReceiptHandle,
-              QueueUrl: queueUrl,
-            })
-            .promise();
+          const message = new DeleteMessageCommand({
+            QueueUrl: queueUrl,
+            ReceiptHandle: m.ReceiptHandle,
+          });
+          await this.sqs.send(message);
         },
         nack: async () => {
           if (!m.ReceiptHandle) return;
-          await this.sqs
-            .changeMessageVisibility({
-              ReceiptHandle: m.ReceiptHandle,
-              QueueUrl: queueUrl,
-              VisibilityTimeout: 0,
-            })
-            .promise();
+          const message = new ChangeMessageVisibilityCommand({
+            QueueUrl: queueUrl,
+            ReceiptHandle: m.ReceiptHandle,
+            VisibilityTimeout: 0,
+          });
+          await this.sqs.send(message);
         },
       };
     });
