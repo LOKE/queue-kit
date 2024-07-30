@@ -164,6 +164,7 @@ interface MockRawMessage {
 class MockSQS implements SQS {
   private queues: { [key: string]: MockRawMessage[] } = {};
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async send(arg: { input: any }) {
     switch (arg.constructor.name) {
       case "ReceiveMessageCommand":

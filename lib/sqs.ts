@@ -8,12 +8,6 @@ import {
   SQSClient,
 } from "@aws-sdk/client-sqs";
 
-interface RawMessage {
-  MessageId?: string;
-  Body?: string;
-  ReceiptHandle?: string;
-}
-
 export type SQS = Pick<SQSClient, "send">;
 
 export type SQSData<T> = { id?: string; body: T };
