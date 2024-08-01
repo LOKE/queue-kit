@@ -1,9 +1,8 @@
 import test from "ava";
-import SQS from "aws-sdk/clients/sqs";
-import { AbortController } from "node-abort-controller";
+import { SQSClient } from "@aws-sdk/client-sqs";
 import { ulid } from "ulid";
 
-import { SQSData, SQSHelper } from "./sqs";
+import { SQS, SQSData, SQSHelper } from "./sqs";
 
 const noopLogger = {
   error: () => undefined,
@@ -11,10 +10,12 @@ const noopLogger = {
 
 function setup() {
   if (process.env.SQS_QUEUE_URL) {
+    const queueUrl = new URL(process.env.SQS_QUEUE_URL);
+    const region = queueUrl.hostname.split(".")[1];
     return {
       queueUrl: process.env.SQS_QUEUE_URL,
       sqs: new SQSHelper({
-        sqs: new SQS(),
+        sqs: new SQSClient({ region: region }),
         logger: noopLogger,
       }),
     };
@@ -160,10 +161,26 @@ interface MockRawMessage {
   Visibility: boolean;
 }
 
-class MockSQS {
+class MockSQS implements SQS {
   private queues: { [key: string]: MockRawMessage[] } = {};
 
-  changeMessageVisibility(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async send(arg: { input: any }) {
+    switch (arg.constructor.name) {
+      case "ReceiveMessageCommand":
+        return this.receiveMessage(arg.input);
+      case "ChangeMessageVisibilityCommand":
+        return this.changeMessageVisibility(arg.input);
+      case "DeleteMessageCommand":
+        return this.deleteMessage(arg.input);
+      case "SendMessageCommand":
+        return this.sendMessage(arg.input);
+      default:
+        throw new Error("command not implemented");
+    }
+  }
+
+  private async changeMessageVisibility(args: {
     ReceiptHandle: string;
     QueueUrl: string;
     VisibilityTimeout: number;
@@ -173,23 +190,20 @@ class MockSQS {
     if (msg) {
       msg.Visibility = true;
     }
-
-    return {
-      promise: () => Promise.resolve(),
-    };
   }
-  deleteMessage(args: { ReceiptHandle: string; QueueUrl: string }) {
+
+  private async deleteMessage(args: {
+    ReceiptHandle: string;
+    QueueUrl: string;
+  }) {
     const queue = this.getQueue(args.QueueUrl);
     const i = queue.findIndex((m) => m.ReceiptHandle === args.ReceiptHandle);
     if (i >= 0) {
       queue.splice(i, 1);
     }
-
-    return {
-      promise: () => Promise.resolve(),
-    };
   }
-  receiveMessage(args: {
+
+  private async receiveMessage(args: {
     MaxNumberOfMessages: number;
     QueueUrl: string;
     WaitTimeSeconds: number;
@@ -208,19 +222,15 @@ class MockSQS {
     }
 
     if (nextMessages.length === 0) {
-      return {
-        promise: () =>
-          new Promise<{ Messages: undefined }>((resolve) =>
-            setTimeout(() => resolve({ Messages: undefined }), 10)
-          ),
-      };
+      return await new Promise<{ Messages: undefined }>((resolve) =>
+        setTimeout(() => resolve({ Messages: undefined }), 10)
+      );
     }
 
-    return {
-      promise: () => Promise.resolve({ Messages: nextMessages }),
-    };
+    return { Messages: nextMessages };
   }
-  sendMessage(args: { QueueUrl: string; MessageBody: string }) {
+
+  private async sendMessage(args: { QueueUrl: string; MessageBody: string }) {
     const id = ulid();
 
     this.getQueue(args.QueueUrl).push({
@@ -229,10 +239,6 @@ class MockSQS {
       ReceiptHandle: "rh-" + id,
       Visibility: true,
     });
-
-    return {
-      promise: () => Promise.resolve(),
-    };
   }
 
   private getQueue(queueUrl: string) {
