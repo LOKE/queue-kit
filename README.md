@@ -4,11 +4,13 @@ A lib for rabbit and sqs queues
 
 # Rabbit
 
-Handling a work queue
+Requires `amqplib` to be installed separately. If you only need RabbitMQ support you can avoid also needing to install `@aws-sdk` packages by importing from `"@loke/queue-kit/rabbit"`.
+
+Handling a work queue:
 
 ```ts
-import { RabbitHelper } from "@loke/queue-kit";
-import amqp from "amqplib";
+import { RabbitHelper } from "@loke/queue-kit"; // or "@loke/queue-kit/rabbit"
+import amqp from "amqplib"; // must be installed separately
 
 async function main() {
   const amqpConnection = await amqp.connect("amqp://localhost");
@@ -69,11 +71,11 @@ const doneP = await Promise.all([
 ]);
 ```
 
-Publishing events
+Publishing events:
 
 ```ts
-import { RabbitHelper } from "@loke/queue-kit";
-import amqp from "amqplib";
+import { RabbitHelper } from "@loke/queue-kit"; // or "@loke/queue-kit/rabbit"
+import amqp from "amqplib"; // must be installed separately
 
 async function main() {
   const amqpConnection = await amqp.connect("amqp://localhost");
@@ -91,15 +93,17 @@ async function main() {
 
 ## SQS
 
-Handling a queue
+Requires `@aws-sdk/client-sqs` to be installed separately. If you only need SQS support you can avoid also needing to install `amqplib` by importing from `"@loke/queue-kit/sqs"`.
+
+Handling a queue:
 
 ```ts
-import { SQSHelper } from "@loke/queue-kit";
-import SQS from "aws-sdk/clients/sqs";
+import { SQSHelper } from "@loke/queue-kit"; // or "@loke/queue-kit/sqs"
+import { SQSClient } from "@aws-sdk/client-sqs"; // must be installed separately
 
 async function main() {
   const sqsHelper = new SQSHelper({
-    sqs: new SQS(),
+    sqs: new SQSClient(),
     logger: console,
   });
 
@@ -121,15 +125,15 @@ async function main() {
 }
 ```
 
-Queueing work
+Queueing work:
 
 ```ts
-import { SQSHelper } from "@loke/queue-kit";
-import SQS from "aws-sdk/clients/sqs";
+import { SQSHelper } from "@loke/queue-kit"; // or "@loke/queue-kit/sqs"
+import { SQSClient } from "@aws-sdk/client-sqs"; // must be installed separately
 
 async function main() {
   const sqsHelper = new SQSHelper({
-    sqs: new SQS(),
+    sqs: new SQSClient(),
     logger: console,
   });
 
