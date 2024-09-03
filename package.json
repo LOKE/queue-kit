@@ -1,6 +1,6 @@
 {
   "name": "@loke/queue-kit",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "A lib for rabbit and sqs queues",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
