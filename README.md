@@ -2,7 +2,7 @@
 
 A lib for rabbit and sqs queues
 
-# Rabbit
+## Rabbit
 
 Requires `amqplib` to be installed separately. If you only need RabbitMQ support you can avoid also needing to install `@aws-sdk` packages by importing from `"@loke/queue-kit/rabbit"`.
 
@@ -141,4 +141,13 @@ async function main() {
     foo: "bar",
   });
 }
+```
+
+## Metrics
+
+```ts
+import { register } from "prom-client";
+import { registerMetrics } from "@loke/queue-kit"; // or "@loke/queue-kit/rabbit" or "@loke/queue-kit/sqs"
+
+registerMetrics(register);
 ```

@@ -4,6 +4,13 @@ import util from "util";
 import { ulid } from "ulid";
 
 import { AbortSignal, Logger, MessageHandler } from "./common";
+import {
+  messagesReceivedCounter,
+  messagesFailedCounter,
+  messagesQueuedCounter,
+  messageHandlerDuration,
+} from "./metrics";
+export { registerMetrics } from "./metrics";
 
 const noop = () => undefined;
 
@@ -21,18 +28,12 @@ export class RabbitHelper {
   // Tested having a channel pool, made no difference to performance
   private useChan: Promise<Channel> | null = null;
 
-  /**
-   *
-   * @param opts.amqpConnection The amqplib connection
-   * @param opts.logger Logger used for reporting errors
-   * @param opts.exchangeName The rabbitmq exchange to use, defaults to "pubsub"
-   */
   constructor(opts: {
+    /** The amqplib connection */
     amqpConnection: Connection;
-    /**
-     * The exchange name to publish to
-     */
+    /** The exchange name to publish to, defaults to "pubsub" */
     exchangeName?: string;
+    /** Logger used for reporting errors */
     logger: Logger;
   }) {
     const { exchangeName = "pubsub" } = opts;
@@ -44,11 +45,11 @@ export class RabbitHelper {
 
   /**
    * onceListener returns a listener that will resolve message data once
-   * @param args.topicPattern The topic pattern to match
-   * @param args.signal An optional signal use for aborting the operation
    */
   async onceListener<M>(args: {
+    /** The topic pattern to match */
     topicPattern: string;
+    /** An optional signal use for aborting the operation */
     signal?: AbortSignal;
   }): Promise<{ data: () => Promise<RabbitData<M>> }> {
     const ch = await this.amqpConn.createChannel();
@@ -128,6 +129,13 @@ export class RabbitHelper {
 
       const { consumerTag } = await ch.consume(args.queueName, async (msg) => {
         if (!msg) return;
+
+        messagesReceivedCounter.inc({ queue: args.queueName });
+        const end = messageHandlerDuration.startTimer({
+          queue: args.queueName,
+          provider: "rabbit",
+        });
+
         const death = msg.properties.headers?.["x-death"]?.find(
           (d) => d.queue === args.queueName
         );
@@ -148,6 +156,10 @@ export class RabbitHelper {
           .then(
             () => ch.ack(msg),
             (err: unknown) => {
+              messagesFailedCounter.inc({
+                queue: args.queueName,
+                provider: "rabbit",
+              });
               this.logger.error(
                 util.format(
                   "Error handling message message_id=%j routing_key=%s deaths=%s: %s",
@@ -164,6 +176,7 @@ export class RabbitHelper {
           );
 
         task.finally(() => {
+          end();
           inProgress.delete(task);
         });
         inProgress.add(task);
@@ -209,6 +222,7 @@ export class RabbitHelper {
         contentEncoding: "utf-8",
         timestamp: unixTime(),
       });
+      messagesQueuedCounter.inc({ queue, provider: "rabbit" });
     });
   }
 
