@@ -16,32 +16,50 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/LOKE/loke-queue.git"
+    "url": "git+https://github.com/LOKE/queue-kit.git"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    },
+    "./common": {
+      "types": "./dist/common.d.ts",
+      "default": "./dist/common.js"
+    },
+    "./rabbit": {
+      "types": "./dist/rabbit.d.ts",
+      "default": "./dist/rabbit.js"
+    },
+    "./sqs": {
+      "types": "./dist/sqs.d.ts",
+      "default": "./dist/sqs.js"
+    }
   },
   "author": "Dominic Smith",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/LOKE/loke-queue/issues"
+    "url": "https://github.com/LOKE/queue-kit/issues"
   },
-  "homepage": "https://github.com/LOKE/loke-queue#readme",
+  "homepage": "https://github.com/LOKE/queue-kit#readme",
   "dependencies": {
-    "@types/amqplib": "^0.8.2",
     "ulid": "^2.3.0"
   },
   "devDependencies": {
-    "@aws-sdk/client-sqs": "^3.620.0",
-    "@types/node": "^18.19.42",
+    "@aws-sdk/client-sqs": "^3.637.0",
+    "@types/amqplib": "^0.10.5",
+    "@types/node": "^20.16.3",
     "@typescript-eslint/eslint-plugin": "^5.19.0",
     "@typescript-eslint/parser": "^5.19.0",
-    "amqplib": "^0.8.0",
-    "ava": "^4.2.0",
+    "amqplib": "^0.10.4",
+    "ava": "^6.1.3",
     "eslint": "^8.13.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-prettier": "^4.0.0",
-    "prettier": "^2.6.2",
-    "prom-client": "^14.0.1",
-    "ts-node": "^10.7.0",
-    "typescript": "^4.6.3"
+    "prettier": "^2.8.8",
+    "prom-client": "^14.2.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4"
   },
   "ava": {
     "extensions": [
