@@ -7,6 +7,13 @@ import {
   SendMessageCommand,
   SQSClient,
 } from "@aws-sdk/client-sqs";
+import {
+  messagesReceivedCounter,
+  messagesFailedCounter,
+  messagesQueuedCounter,
+  messageHandlerDuration,
+} from "./metrics";
+export { registerMetrics } from "./metrics";
 
 export type SQS = Pick<SQSClient, "send">;
 
@@ -50,11 +57,23 @@ export class SQSHelper {
 
       messages
         .map(async (m) => {
+          messagesReceivedCounter.inc({
+            queue: args.queueUrl,
+            provider: "sqs",
+          });
+          const end = messageHandlerDuration.startTimer({
+            queue: args.queueUrl,
+          });
+
           try {
             await args.handler(m.data);
             await m.ack();
             // ackedCount.inc(labels);
           } catch (err: unknown) {
+            messagesFailedCounter.inc({
+              queue: args.queueUrl,
+              provider: "sqs",
+            });
             this.logger.error(
               util.format(
                 "Error handling message message_id=%j : %s",
@@ -70,6 +89,7 @@ export class SQSHelper {
             );
             // nackedCount.inc(labels);
           } finally {
+            end();
             // inFlightMessages.dec(labels);
           }
         })
@@ -89,8 +109,11 @@ export class SQSHelper {
       QueueUrl: queueUrl,
       MessageBody: JSON.stringify(payload),
     });
-
     await this.sqs.send(message);
+    messagesQueuedCounter.inc({
+      queue: queueUrl,
+      provider: "sqs",
+    });
   }
 
   private async receiveMessages<T>(
