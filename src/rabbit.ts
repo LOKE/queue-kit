@@ -22,15 +22,19 @@ export interface RabbitData<T> {
 }
 
 export class RabbitHelper {
-  private amqpConn: Connection;
+  private createConnection: () => Promise<Connection>;
   private logger: Logger;
   private exchangeName: string;
   // Tested having a channel pool, made no difference to performance
   private useChan: Promise<Channel> | null = null;
+  private useConn: Promise<Connection> | null = null;
 
   constructor(opts: {
-    /** The amqplib connection */
-    amqpConnection: Connection;
+    /**
+     * A function that returns a new connection, this is used to create a new
+     * connection initially when the current one is disconnected
+     */
+    createConnection: () => Promise<Connection>;
     /** The exchange name to publish to, defaults to "pubsub" */
     exchangeName?: string;
     /** Logger used for reporting errors */
@@ -38,9 +42,9 @@ export class RabbitHelper {
   }) {
     const { exchangeName = "pubsub" } = opts;
 
-    this.amqpConn = opts.amqpConnection;
     this.logger = opts.logger;
     this.exchangeName = exchangeName;
+    this.createConnection = opts.createConnection;
   }
 
   /**
@@ -52,7 +56,8 @@ export class RabbitHelper {
     /** An optional signal use for aborting the operation */
     signal?: AbortSignal;
   }): Promise<{ data: () => Promise<RabbitData<M>> }> {
-    const ch = await this.amqpConn.createChannel();
+    const conn = await this.getConnection();
+    const ch = await conn.createChannel();
 
     try {
       await ch.prefetch(1);
@@ -122,7 +127,8 @@ export class RabbitHelper {
     handler: MessageHandler<RabbitData<T>>;
   }): Promise<void> {
     const inProgress = new Set<Promise<void>>();
-    const ch = await this.amqpConn.createChannel();
+    const conn = await this.getConnection();
+    const ch = await conn.createChannel();
 
     try {
       await ch.prefetch(args.maxConcurrent || 20);
@@ -289,7 +295,7 @@ export class RabbitHelper {
   async usingChannel<T>(fn: (ch: Channel) => Promise<T>): Promise<T> {
     let ch: Channel;
     if (!this.useChan) {
-      this.useChan = Promise.resolve(this.amqpConn.createChannel());
+      this.useChan = this.getConnection().then((conn) => conn.createChannel());
       ch = await this.useChan;
       ch.once("close", () => {
         this.useChan = null;
@@ -299,6 +305,46 @@ export class RabbitHelper {
     }
 
     return await fn(ch);
+  }
+
+  async close(): Promise<void> {
+    if (this.useConn) {
+      const conn = await this.useConn;
+      await conn.close();
+    }
+  }
+
+  private async getConnection(): Promise<Connection> {
+    if (this.useConn) {
+      return this.useConn;
+    }
+
+    const connP = this.createConnection().then((conn) => {
+      conn.once("error", (err) => {
+        conn.close();
+        this.logger.error(
+          `RabbitMQ connection error - invalidating connection: ${err}`
+        );
+        if (this.useConn === connP) {
+          this.useConn = null;
+        }
+      });
+
+      conn.once("close", () => {
+        this.logger.error(
+          "RabbitMQ connection closed unexpectedly - invalidating connection"
+        );
+        if (this.useConn === connP) {
+          this.useConn = null;
+        }
+      });
+
+      return conn;
+    });
+
+    this.useConn = connP;
+
+    return this.useConn;
   }
 }
 

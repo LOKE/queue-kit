@@ -9,17 +9,16 @@ const noopLogger = {
 };
 
 async function setup(t: ExecutionContext<unknown>) {
-  const conn = await connect(process.env.RABBIT_URL || "amqp://127.0.0.1");
-  t.teardown(async () => {
-    await conn.close();
-  });
-
   const exchangeName = `loke-queue.test-${ulid()}`;
 
   const rabbit = new RabbitHelper({
-    amqpConnection: conn,
+    createConnection: () =>
+      connect(process.env.RABBIT_URL || "amqp://127.0.0.1"),
     logger: noopLogger,
     exchangeName,
+  });
+  t.teardown(async () => {
+    await rabbit.close();
   });
 
   await rabbit.assertExchange();
