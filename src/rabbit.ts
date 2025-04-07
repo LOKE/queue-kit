@@ -295,10 +295,21 @@ export class RabbitHelper {
   async usingChannel<T>(fn: (ch: Channel) => Promise<T>): Promise<T> {
     let ch: Channel;
     if (!this.useChan) {
-      this.useChan = this.getConnection().then((conn) => conn.createChannel());
+      const chanP = this.getConnection().then(
+        (conn) => conn.createChannel(),
+        (err) => {
+          if (this.useChan === chanP) {
+            this.useChan = null;
+          }
+          throw err;
+        }
+      );
+      this.useChan = chanP;
       ch = await this.useChan;
       ch.once("close", () => {
-        this.useChan = null;
+        if (this.useChan === chanP) {
+          this.useChan = null;
+        }
       });
     } else {
       ch = await this.useChan;
@@ -319,28 +330,40 @@ export class RabbitHelper {
       return this.useConn;
     }
 
-    const connP = this.createConnection().then((conn) => {
-      conn.once("error", (err) => {
-        conn.close();
-        this.logger.error(
-          `RabbitMQ connection error - invalidating connection: ${err}`
-        );
+    const connP = this.createConnection().then(
+      (conn) => {
+        conn.once("error", (err) => {
+          conn.close();
+          this.logger.error(
+            `RabbitMQ connection error - invalidating connection: ${err}`
+          );
+          if (this.useConn === connP) {
+            console.error("Invalidating connection");
+            this.useConn = null;
+          }
+        });
+
+        conn.once("close", () => {
+          this.logger.error(
+            "RabbitMQ connection closed unexpectedly - invalidating connection"
+          );
+          if (this.useConn === connP) {
+            console.error("Invalidating connection");
+            this.useConn = null;
+          }
+        });
+
+        return conn;
+      },
+      (err) => {
+        this.logger.error(`Failed to connect to RabbitMQ: ${err}`);
         if (this.useConn === connP) {
+          console.error("Invalidating connection");
           this.useConn = null;
         }
-      });
-
-      conn.once("close", () => {
-        this.logger.error(
-          "RabbitMQ connection closed unexpectedly - invalidating connection"
-        );
-        if (this.useConn === connP) {
-          this.useConn = null;
-        }
-      });
-
-      return conn;
-    });
+        throw err;
+      }
+    );
 
     this.useConn = connP;
 
