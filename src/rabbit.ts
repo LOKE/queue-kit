@@ -3,7 +3,7 @@ import assert from "assert";
 import util from "util";
 import { ulid } from "ulid";
 
-import { AbortSignal, Logger, MessageHandler } from "./common";
+import { Logger, MessageHandler } from "./common";
 import {
   messagesReceivedCounter,
   messagesFailedCounter,
@@ -124,11 +124,23 @@ export class RabbitHelper {
     const inProgress = new Set<Promise<void>>();
     const ch = await this.amqpConn.createChannel();
 
+    let chClosed = false;
+    const consumerAbort = new AbortController();
+    const onClose = () => {
+      chClosed = true;
+      consumerAbort.abort();
+    };
+    ch.once("close", onClose);
+
     try {
       await ch.prefetch(args.maxConcurrent || 20);
 
       const { consumerTag } = await ch.consume(args.queueName, async (msg) => {
-        if (!msg) return;
+        // msg is null when the consumer is cancelled
+        if (!msg) {
+          consumerAbort.abort();
+          return;
+        }
 
         messagesReceivedCounter.inc({ queue: args.queueName });
         const end = messageHandlerDuration.startTimer({
@@ -182,19 +194,27 @@ export class RabbitHelper {
         inProgress.add(task);
       });
 
-      if (!args.signal.aborted) {
-        await new Promise<void>((resolve) => {
-          args.signal.addEventListener("abort", () => resolve(), {
+      const raceSignal = AbortSignal.any([args.signal, consumerAbort.signal]);
+
+      if (!raceSignal.aborted) {
+        await new Promise((resolve) => {
+          raceSignal.addEventListener("abort", resolve, {
             once: true,
           });
         });
       }
 
-      await ch.cancel(consumerTag);
+      if (!chClosed) {
+        await ch.cancel(consumerTag);
 
-      await Promise.all(inProgress);
+        await Promise.all(inProgress);
+      }
     } finally {
-      await ch.close();
+      ch.removeListener("close", onClose);
+
+      if (!chClosed) {
+        await ch.close();
+      }
     }
   }
 
