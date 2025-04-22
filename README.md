@@ -58,7 +58,7 @@ main();
 option. This is the delay between retries when a message fails to be processed.
 To achieve this a dead letter queue is created and attached to the work queue
 (via the default direct exchange). Because old queues can't be changed via
-assertQueue, a new will need to be created.
+assertQueue, a new one will need to be created.
 
 ```ts
 await rabbitHelper.assertWorkQueue("new-queue", { retryDelay: 1000 });
