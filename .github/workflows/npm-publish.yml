@@ -29,6 +29,7 @@ jobs:
           RABBIT_URL: amqp://127.0.0.1:${{ job.services.rabbitmq.ports['5672'] }}
 
   publish:
+    if: github.ref == 'refs/heads/master'
     needs: test
     runs-on: ubuntu-latest
 
